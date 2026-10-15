@@ -3,155 +3,289 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>CuboiCraft 2D</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>2D-cuboiCraft</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;overflow:hidden;background:#83d9ff;font-family:Arial;touch-action:none;user-select:none}
-canvas{display:block;width:100vw;height:100dvh;image-rendering:pixelated;touch-action:none}
-#info{position:fixed;top:10px;left:10px;color:white;background:#172333cc;padding:9px 12px;border-radius:10px;font-weight:bold;pointer-events:none}
-#controls{position:fixed;bottom:22px;left:0;width:100%;display:flex;justify-content:space-between;align-items:end;padding:0 20px;pointer-events:none}
-#stickArea{width:130px;height:130px;border-radius:50%;background:#ffffff30;border:2px solid #ffffff70;position:relative;pointer-events:auto;touch-action:none}
-#knob{position:absolute;left:35px;top:35px;width:56px;height:56px;background:#ffffffb8;border:3px solid white;border-radius:50%;pointer-events:none}
-.right{display:flex;gap:12px;align-items:end;pointer-events:auto}
-.btn{width:70px;height:70px;border-radius:50%;border:3px solid #fff;background:#263b52bb;color:white;font-size:15px;font-weight:bold;touch-action:none}
-#jump{width:82px;height:82px;background:#329b57dd}
-#hint{position:fixed;top:53px;left:10px;color:#123;background:#ffffffb9;padding:6px 9px;border-radius:8px;font-size:12px;pointer-events:none}
+body{margin:0;background:#182331;color:white;font-family:Arial;overflow:hidden}
+button,input,select{font-size:16px;padding:11px;border:0;border-radius:9px}
+button{background:#398d4a;color:white;font-weight:bold}
+header{height:42px;background:#24364a;padding:12px;font-weight:bold}
+canvas{display:block;touch-action:none}
+#menu{position:absolute;inset:42px 0 0;background:#172535;z-index:5;overflow:auto;padding:18px;text-align:center}
+#menu input,#menu select{width:90%;margin:5px;background:#fff;color:#222}
+.panel{max-width:450px;margin:15px auto;background:#263a4e;border-radius:14px;padding:14px}
+.choice{display:flex;gap:7px;flex-wrap:wrap;justify-content:center}
+.choice button{flex:1;min-width:95px}
+#hud{position:absolute;top:50px;left:8px;pointer-events:none;text-shadow:1px 1px #000}
+#joystick{position:absolute;width:130px;height:130px;left:20px;bottom:22px;border-radius:50%;background:#ffffff30;border:2px solid #ffffff70;touch-action:none;display:none}
+#stick{position:absolute;width:54px;height:54px;left:36px;top:36px;border-radius:50%;background:#ffffffa0}
+#jump{position:absolute;right:22px;bottom:35px;width:76px;height:76px;border-radius:50%;background:#438ce9}
+#action{position:absolute;right:26px;bottom:125px;width:86px;height:65px;background:#9b7040}
+#hint{position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:11px;color:#ddd;pointer-events:none}
+#servers button{display:block;width:100%;margin:7px 0}
 </style>
 </head>
 <body>
+<header>🟩 2D-cuboiCraft</header>
 <canvas id="game"></canvas>
-<div id="info">⛏️ CuboiCraft 2D</div>
-<div id="hint">Joystick : bouger • Saut : sauter • Maintenir : casser</div>
-<div id="controls">
-  <div id="stickArea"><div id="knob"></div></div>
-  <div class="right">
-    <button class="btn" id="mine">BLOC</button>
-    <button class="btn" id="jump">SAUT</button>
-  </div>
+
+<div id="menu">
+<h1>🟩 2D-cuboiCraft</h1>
+<div class="panel" id="home">
+<h3>Ton profil</h3>
+<input id="nickname" maxlength="16" placeholder="Choisis ton pseudo">
+<button id="saveName">Valider mon pseudo</button>
+<p id="welcome">Bienvenue !</p>
+<h3>Jouer</h3>
+<button id="solo">Créer un monde</button>
+<div class="choice">
+<button data-mode="Public">🌍 Public</button>
+<button data-mode="Amis">👥 Amis</button>
+<button data-mode="Privé">🔒 Privé</button>
 </div>
+<p id="modeText">Mode choisi : Public</p>
+<button id="start">JOUER</button>
+<button id="showServers">🌐 Liste des serveurs</button>
+<p style="font-size:12px;color:#ccc">Le choix de visibilité est une prévisualisation locale. La protection en ligne nécessite un serveur.</p>
+</div>
+<div class="panel" id="servers" hidden>
+<h3>🌐 Serveurs</h3>
+<div id="serverList"></div>
+<button id="back">Retour</button>
+<p style="font-size:12px">Les serveurs ci-dessus sont des emplacements de démonstration, pas des serveurs en ligne actifs.</p>
+</div>
+<div class="panel">
+<h3>Commandes</h3>
+<p>🕹️ Joystick dynamique pour bouger</p>
+<p>⬆️ Bouton bleu : sauter</p>
+<p>🧱 Appui bref sur le monde : poser un bloc</p>
+<p>⛏️ Maintenir le doigt : miner progressivement</p>
+</div>
+</div>
+
+<div id="hud" hidden>Joueur : <span id="hudName"></span><br>Blocs : <span id="count">12</span></div>
+<div id="joystick"><div id="stick"></div></div>
+<button id="jump" hidden>⬆️</button>
+<button id="action" hidden>⛏️ / 🧱</button>
+<div id="hint" hidden>Appui bref : poser · Maintenir : miner</div>
+
 <script>
-const canvas=document.getElementById('game');
-const ctx=canvas.getContext('2d');
-const tile=32;
-let W=0,H=0,cols=0,rows=0;
+const canvas=document.querySelector("#game");
+const ctx=canvas.getContext("2d");
+const menu=document.querySelector("#menu");
+const joy=document.querySelector("#joystick");
+const stick=document.querySelector("#stick");
+const jumpBtn=document.querySelector("#jump");
+const actionBtn=document.querySelector("#action");
+const hud=document.querySelector("#hud");
+const hint=document.querySelector("#hint");
+let cw=innerWidth,ch=innerHeight-42,dpr=1;
 function resize(){
- const d=Math.min(devicePixelRatio||1,2);
- W=innerWidth;H=innerHeight;
- canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);
- ctx.setTransform(d,0,0,d,0,0);
- cols=Math.ceil(W/tile)+5;rows=Math.ceil(H/tile)+8;
+ cw=innerWidth;ch=innerHeight-42;dpr=Math.min(devicePixelRatio||1,2);
+ canvas.width=cw*dpr;canvas.height=ch*dpr;
+ canvas.style.width=cw+"px";canvas.style.height=ch+"px";
+ ctx.setTransform(dpr,0,0,dpr,0,0);
 }
-addEventListener('resize',resize);resize();
-let world={};
-function key(x,y){return x+','+y}
-function getBlock(x,y){
- if(y<0)return 0;
- if(y>=12)return 3;
- if(y>7)return 2;
- if(y===7)return 1;
- return world[key(x,y)]||0;
-}
-function setBlock(x,y,v){world[key(x,y)]=v}
-const colors={1:'#58b947',2:'#98633d',3:'#777f8a',4:'#d5b66a'};
-let player={x:3,y:4,vx:0,vy:0,w:.7,h:1.5,onGround:false};
-let camera=0,joy=0,jump=false;
-let stick=null;
-const area=document.getElementById('stickArea');
-const knob=document.getElementById('knob');
-area.addEventListener('pointerdown',e=>{
- area.setPointerCapture(e.pointerId);
- stick={id:e.pointerId,cx:e.clientX,cy:e.clientY};
- moveStick(e);
-});
-area.addEventListener('pointermove',e=>{if(stick&&e.pointerId===stick.id)moveStick(e)});
-function moveStick(e){
- const r=area.getBoundingClientRect();
- const dx=e.clientX-stick.cx,dy=e.clientY-stick.cy;
- const len=Math.hypot(dx,dy),max=37;
- const k=Math.min(1,max/(len||1));
- knob.style.left=(35+dx*k)+'px';
- knob.style.top=(35+dy*k)+'px';
- joy=Math.max(-1,Math.min(1,dx/38));
-}
-function endStick(e){
- if(stick&&e.pointerId===stick.id){
- stick=null;joy=0;knob.style.left='35px';knob.style.top='35px';
- }
-}
-area.addEventListener('pointerup',endStick);
-area.addEventListener('pointercancel',endStick);
-document.getElementById('jump').addEventListener('pointerdown',e=>{
- e.preventDefault();jump=true;
-});
-document.getElementById('jump').addEventListener('pointerup',()=>jump=false);
-document.getElementById('jump').addEventListener('pointercancel',()=>jump=false);
-let mining=null,mineTimer=0;
-const mineBtn=document.getElementById('mine');
-mineBtn.addEventListener('pointerdown',e=>{
- e.preventDefault();mining={x:Math.floor(player.x+player.w/2+joy),y:Math.floor(player.y+1)};
- mineTimer=performance.now();
-});
-mineBtn.addEventListener('pointerup',()=>{
- if(!mining)return;
- const duration=performance.now()-mineTimer;
- if(duration<240){
-   const x=Math.floor(player.x+player.w/2+joy);
-   const y=Math.floor(player.y+1.2);
-   const bx=Math.round(x),by=Math.round(y);
-   if(!getBlock(bx,by))setBlock(bx,by,2);
- }else{
-   const x=mining.x,y=mining.y;
-   if(getBlock(x,y))setBlock(x,y,0);
- }
- mining=null;
-});
-mineBtn.addEventListener('pointercancel',()=>mining=null);
-function solid(x,y){return getBlock(Math.floor(x),Math.floor(y))!==0}
-function update(){
- player.vx=joy*5;
- if(jump&&player.onGround){player.vy=-9;player.onGround=false}
- player.vy=Math.min(player.vy+23/60,.65*20);
- let nx=player.x+player.vx/60;
- if(!solid(nx,player.y+.1)&&!solid(nx+player.w,player.y+.1)&&!solid(nx,player.y+player.h-.1)&&!solid(nx+player.w,player.y+player.h-.1))player.x=nx;
- let ny=player.y+player.vy/60;
- if(player.vy>=0&&(solid(player.x+.1,ny+player.h)||solid(player.x+player.w-.1,ny+player.h))){
-  player.y=Math.floor(ny+player.h)-player.h;player.vy=0;player.onGround=true;
- }else if(player.vy<0&&(solid(player.x+.1,ny)||solid(player.x+player.w-.1,ny))){
-  player.vy=0;
- }else{player.y=ny;player.onGround=false}
- if(player.y>30){player.x=3;player.y=2;player.vy=0}
- camera=player.x*tile-W*.38;
-}
-function draw(){
- ctx.clearRect(0,0,W,H);
- const sky=ctx.createLinearGradient(0,0,0,H);
- sky.addColorStop(0,'#66c8ff');sky.addColorStop(1,'#d5f5ff');
- ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
- ctx.fillStyle='#fff5a8';ctx.beginPath();ctx.arc(W-55,95,28,0,Math.PI*2);ctx.fill();
- const start=Math.floor(camera/tile)-1;
- for(let x=start;x<start+Math.ceil(W/tile)+3;x++){
-  for(let y=0;y<13;y++){
-   let b=getBlock(x,y);if(!b)continue;
-   const sx=x*tile-camera,sy=H-((12-y)*tile);
-   ctx.fillStyle=colors[b]||'#98633d';ctx.fillRect(sx,sy,tile,tile);
-   ctx.strokeStyle='#00000020';ctx.strokeRect(sx,sy,tile,tile);
-   if(b===1){ctx.fillStyle='#76df50';ctx.fillRect(sx,sy,tile,5)}
+addEventListener("resize",resize);resize();
+
+const TS=32,MW=180,MH=45;
+let world=[],surface=[],camera=0,player=null;
+let blocks=12,running=false,last=0,selectedMode="Public";
+let axis=0,joyId=null,joyOrigin={x:0,y:0},jumping=false;
+let mining=null,actionTimer=0,placed=false,frame=0;
+
+function generate(){
+ world=Array.from({length:MH},()=>Array(MW).fill(0));
+ surface=[];
+ let h=20;
+ for(let x=0;x<MW;x++){
+  h+=Math.random()<.25?(Math.random()<.5?-1:1):0;
+  h=Math.max(10,Math.min(28,h));surface[x]=h;
+  for(let y=h;y<MH;y++)world[y][x]=y===h?1:y<h+4?2:3;
+  if(Math.random()<.045&&x>3&&x<MW-3){
+   for(let y=h-1;y>=h-4;y--)world[y][x]=4;
+   for(let dx=-2;dx<=2;dx++)for(let dy=-6;dy<=-3;dy++)
+    if(Math.random()>.25&&h+dy>=0)world[h+dy][x+dx]=5;
   }
  }
- const px=player.x*tile-camera,py=H-(12-player.y)*tile-player.h*tile;
- ctx.fillStyle='#2b6bd9';ctx.fillRect(px,py,player.w*tile,player.h*tile);
- ctx.fillStyle='#ffd0a1';ctx.fillRect(px+5,py+3,13,14);
- ctx.fillStyle='#202b42';ctx.fillRect(px+14,py+8,3,3);
- ctx.fillStyle='#26394d';ctx.fillRect(px+3,py+player.h*tile-5,8,5);ctx.fillRect(px+14,py+player.h*tile-5,8,5);
- if(mining){
-  const bx=mining.x*tile-camera,by=H-(12-mining.y)*tile;
-  ctx.strokeStyle='white';ctx.lineWidth=2;ctx.strokeRect(bx+2,by+2,tile-4,tile-4);
- }
- requestAnimationFrame(draw);
 }
-function loop(){update();setTimeout(loop,16)}
-draw();loop();
+const colors={1:"#58b849",2:"#98643d",3:"#808997",4:"#77502d",5:"#2b873b"};
+function solid(x,y){
+ if(x<0||x>=MW||y>=MH)return true;
+ return y>=0&&world[y][x]!==0;
+}
+function saveName(){
+ let n=document.querySelector("#nickname").value.trim();
+ if(!n)n="Joueur";
+ document.querySelector("#nickname").value=n;
+ document.querySelector("#welcome").textContent="Bonjour, "+n+" !";
+}
+document.querySelector("#saveName").onclick=saveName;
+document.querySelectorAll("[data-mode]").forEach(b=>{
+ b.onclick=()=>{
+  selectedMode=b.dataset.mode;
+  document.querySelector("#modeText").textContent="Mode choisi : "+selectedMode;
+ };
+});
+document.querySelector("#solo").onclick=()=>{
+ document.querySelector("#modeText").textContent="Choisis un mode puis appuie sur JOUER";
+};
+document.querySelector("#showServers").onclick=()=>{
+ document.querySelector("#home").hidden=true;
+ document.querySelector("#servers").hidden=false;
+};
+document.querySelector("#back").onclick=()=>{
+ document.querySelector("#servers").hidden=true;
+ document.querySelector("#home").hidden=false;
+};
+const serverList=document.querySelector("#serverList");
+for(let i=1;i<=5;i++){
+ const b=document.createElement("button");
+ b.textContent="Serveur "+i+" — Démo hors ligne";
+ b.onclick=()=>alert("Ce serveur n'est pas encore connecté. Le multijoueur sera ajouté avec un vrai serveur en ligne.");
+ serverList.appendChild(b);
+}
+function startGame(){
+ saveName();
+ generate();
+ player={x:5*TS,y:(surface[5]-1)*TS-27,vx:0,vy:0,
+  name:document.querySelector("#nickname").value,ground:false,dir:1};
+ blocks=12;camera=0;running=true;last=performance.now();
+ menu.hidden=true;hud.hidden=false;hint.hidden=false;
+ jumpBtn.hidden=false;actionBtn.hidden=false;joy.style.display="block";
+ document.querySelector("#hudName").textContent=player.name;
+ document.querySelector("#count").textContent=blocks;
+ requestAnimationFrame(loop);
+}
+document.querySelector("#start").onclick=startGame;
+
+// Joystick dynamique
+canvas.addEventListener("pointerdown",e=>{
+ if(!running||joyId!==null)return;
+ if(e.clientX<cw*.55&&e.clientY>ch*.45){
+  joyId=e.pointerId;
+  joyOrigin={x:e.clientX,y:e.clientY};
+  joy.style.display="block";
+  joy.style.left=Math.max(8,Math.min(cw-138,e.clientX-65))+"px";
+  joy.style.bottom=(innerHeight-e.clientY-65)+"px";
+  stick.style.left="36px";stick.style.top="36px";
+  updateJoy(e);
+ }
+});
+function updateJoy(e){
+ if(joyId!==e.pointerId)return;
+ let dx=e.clientX-joyOrigin.x,dy=e.clientY-joyOrigin.y;
+ let len=Math.hypot(dx,dy),max=40;
+ if(len>max){dx=dx/len*max;dy=dy/len*max}
+ stick.style.left=(36+dx)+"px";stick.style.top=(36+dy)+"px";
+ axis=dx/max;
+}
+addEventListener("pointermove",e=>{if(joyId===e.pointerId)updateJoy(e)});
+function releaseJoy(e){
+ if(e.pointerId!==joyId)return;
+ joyId=null;axis=0;joy.style.display="none";
+}
+addEventListener("pointerup",releaseJoy);
+addEventListener("pointercancel",releaseJoy);
+
+jumpBtn.addEventListener("pointerdown",e=>{
+ e.preventDefault();jumping=true;
+});
+jumpBtn.addEventListener("pointerup",()=>jumping=false);
+jumpBtn.addEventListener("pointercancel",()=>jumping=false);
+
+// Appui bref = poser, appui long = miner
+let actionStart=0,actionPointer=null,actionDidMine=false;
+actionBtn.addEventListener("pointerdown",e=>{
+ e.preventDefault();actionPointer=e.pointerId;
+ actionStart=performance.now();actionDidMine=false;
+ actionTimer=setTimeout(()=>{actionDidMine=true;mineBlock();mining=setInterval(mineBlock,180)},350);
+});
+function stopAction(){
+ if(actionPointer===null)return;
+ clearTimeout(actionTimer);clearInterval(mining);mining=null;
+ if(!actionDidMine)placeBlock();
+ actionPointer=null;
+}
+actionBtn.addEventListener("pointerup",stopAction);
+actionBtn.addEventListener("pointercancel",stopAction);
+
+function targetBlock(){
+ const dir=player.dir||1;
+ const tx=Math.floor((player.x+11)/TS)+dir;
+ const ty=Math.floor((player.y+14)/TS);
+ return {x:tx,y:ty};
+}
+function mineBlock(){
+ if(!player)return;
+ const b=targetBlock();
+ if(b.x<0||b.x>=MW||b.y<0||b.y>=MH||world[b.y][b.x]===0)return;
+ if(!miningProgress[b.y+":"+b.x])miningProgress[b.y+":"+b.x]=0;
+ miningProgress[b.y+":"+b.x]+=.35;
+ if(miningProgress[b.y+":"+b.x]>=1){
+  world[b.y][b.x]=0;delete miningProgress[b.y+":"+b.x];
+  blocks++;document.querySelector("#count").textContent=blocks;
+ }
+}
+let miningProgress={};
+function placeBlock(){
+ if(!player||blocks<=0)return;
+ const b=targetBlock();
+ if(b.x<0||b.x>=MW||b.y<0||b.y>=MH||world[b.y][b.x]!==0)return;
+ world[b.y][b.x]=2;blocks--;
+ document.querySelector("#count").textContent=blocks;
+}
+
+function loop(now){
+ if(!running)return;
+ const dt=Math.min((now-last)/16.67,2);last=now;frame++;
+ const p=player;
+ p.vx+=axis*.65*dt;
+ p.vx=Math.max(-4,Math.min(4,p.vx));
+ if(Math.abs(axis)<.1)p.vx*=Math.pow(.78,dt);
+ if(Math.abs(p.vx)>.1)p.dir=Math.sign(p.vx);
+ p.vy=Math.min(12,p.vy+.48*dt);
+ if(jumping&&p.ground){p.vy=-10;p.ground=false}
+ p.x+=p.vx*dt;
+ if(solid(Math.floor(p.x/TS),Math.floor((p.y+8)/TS))||
+ solid(Math.floor((p.x+21)/TS),Math.floor((p.y+8)/TS))){
+  p.x-=p.vx*dt;p.vx=0;
+ }
+ p.y+=p.vy*dt;p.ground=false;
+ if(p.vy>=0&&(solid(Math.floor((p.x+3)/TS),Math.floor((p.y+28)/TS))||
+ solid(Math.floor((p.x+20)/TS),Math.floor((p.y+28)/TS)))){
+  p.y=Math.floor((p.y+28)/TS)*TS-29;p.vy=0;p.ground=true;
+ }else if(p.vy<0&&(solid(Math.floor((p.x+3)/TS),Math.floor(p.y/TS))||
+ solid(Math.floor((p.x+20)/TS),Math.floor(p.y/TS))))p.vy=0;
+
+ camera=Math.max(0,Math.min(MW*TS-cw,p.x-cw*.45));
+ ctx.fillStyle="#84c8f0";ctx.fillRect(0,0,cw,ch);
+ const sx=Math.floor(camera/TS),ex=Math.min(MW,sx+Math.ceil(cw/TS)+2);
+ for(let y=0;y<MH;y++)for(let x=sx;x<ex;x++){
+  const b=world[y][x];if(!b)continue;
+  ctx.fillStyle=colors[b]||"#777";
+  ctx.fillRect(x*TS-camera,y*TS,TS,TS);
+  ctx.strokeStyle="#0002";ctx.strokeRect(x*TS-camera,y*TS,TS,TS);
+  const progress=miningProgress[y+":"+x]||0;
+  if(progress>0){
+   ctx.fillStyle="#0007";ctx.fillRect(x*TS-camera,y*TS,TS,TS);
+   ctx.strokeStyle="#fff";ctx.lineWidth=2;
+   ctx.beginPath();ctx.moveTo(x*TS-camera+5,y*TS+5);
+   ctx.lineTo(x*TS-camera+27,y*TS+27);ctx.stroke();ctx.lineWidth=1;
+  }
+ }
+ const px=p.x-camera,py=p.y;
+ ctx.font="12px Arial";
+ const tw=Math.max(44,ctx.measureText(p.name).width+10);
+ ctx.fillStyle="#0009";ctx.fillRect(px+11-tw/2,py-31,tw,17);
+ ctx.fillStyle="white";ctx.textAlign="center";
+ ctx.fillText(p.name,px+11,py-19);ctx.textAlign="left";
+ ctx.fillStyle="#2377dc";ctx.fillRect(px,py,22,28);
+ ctx.fillStyle="#f0c49b";ctx.fillRect(px+2,py-10,18,15);
+ ctx.fillStyle="#222";ctx.fillRect(px+5,py-5,3,3);ctx.fillRect(px+14,py-5,3,3);
+ requestAnimationFrame(loop);
+}
 </script>
 </body>
 </html>
