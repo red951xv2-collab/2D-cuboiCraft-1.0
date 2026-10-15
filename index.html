@@ -1,0 +1,157 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>CuboiCraft 2D</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;overflow:hidden;background:#83d9ff;font-family:Arial;touch-action:none;user-select:none}
+canvas{display:block;width:100vw;height:100dvh;image-rendering:pixelated;touch-action:none}
+#info{position:fixed;top:10px;left:10px;color:white;background:#172333cc;padding:9px 12px;border-radius:10px;font-weight:bold;pointer-events:none}
+#controls{position:fixed;bottom:22px;left:0;width:100%;display:flex;justify-content:space-between;align-items:end;padding:0 20px;pointer-events:none}
+#stickArea{width:130px;height:130px;border-radius:50%;background:#ffffff30;border:2px solid #ffffff70;position:relative;pointer-events:auto;touch-action:none}
+#knob{position:absolute;left:35px;top:35px;width:56px;height:56px;background:#ffffffb8;border:3px solid white;border-radius:50%;pointer-events:none}
+.right{display:flex;gap:12px;align-items:end;pointer-events:auto}
+.btn{width:70px;height:70px;border-radius:50%;border:3px solid #fff;background:#263b52bb;color:white;font-size:15px;font-weight:bold;touch-action:none}
+#jump{width:82px;height:82px;background:#329b57dd}
+#hint{position:fixed;top:53px;left:10px;color:#123;background:#ffffffb9;padding:6px 9px;border-radius:8px;font-size:12px;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="info">⛏️ CuboiCraft 2D</div>
+<div id="hint">Joystick : bouger • Saut : sauter • Maintenir : casser</div>
+<div id="controls">
+  <div id="stickArea"><div id="knob"></div></div>
+  <div class="right">
+    <button class="btn" id="mine">BLOC</button>
+    <button class="btn" id="jump">SAUT</button>
+  </div>
+</div>
+<script>
+const canvas=document.getElementById('game');
+const ctx=canvas.getContext('2d');
+const tile=32;
+let W=0,H=0,cols=0,rows=0;
+function resize(){
+ const d=Math.min(devicePixelRatio||1,2);
+ W=innerWidth;H=innerHeight;
+ canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);
+ ctx.setTransform(d,0,0,d,0,0);
+ cols=Math.ceil(W/tile)+5;rows=Math.ceil(H/tile)+8;
+}
+addEventListener('resize',resize);resize();
+let world={};
+function key(x,y){return x+','+y}
+function getBlock(x,y){
+ if(y<0)return 0;
+ if(y>=12)return 3;
+ if(y>7)return 2;
+ if(y===7)return 1;
+ return world[key(x,y)]||0;
+}
+function setBlock(x,y,v){world[key(x,y)]=v}
+const colors={1:'#58b947',2:'#98633d',3:'#777f8a',4:'#d5b66a'};
+let player={x:3,y:4,vx:0,vy:0,w:.7,h:1.5,onGround:false};
+let camera=0,joy=0,jump=false;
+let stick=null;
+const area=document.getElementById('stickArea');
+const knob=document.getElementById('knob');
+area.addEventListener('pointerdown',e=>{
+ area.setPointerCapture(e.pointerId);
+ stick={id:e.pointerId,cx:e.clientX,cy:e.clientY};
+ moveStick(e);
+});
+area.addEventListener('pointermove',e=>{if(stick&&e.pointerId===stick.id)moveStick(e)});
+function moveStick(e){
+ const r=area.getBoundingClientRect();
+ const dx=e.clientX-stick.cx,dy=e.clientY-stick.cy;
+ const len=Math.hypot(dx,dy),max=37;
+ const k=Math.min(1,max/(len||1));
+ knob.style.left=(35+dx*k)+'px';
+ knob.style.top=(35+dy*k)+'px';
+ joy=Math.max(-1,Math.min(1,dx/38));
+}
+function endStick(e){
+ if(stick&&e.pointerId===stick.id){
+ stick=null;joy=0;knob.style.left='35px';knob.style.top='35px';
+ }
+}
+area.addEventListener('pointerup',endStick);
+area.addEventListener('pointercancel',endStick);
+document.getElementById('jump').addEventListener('pointerdown',e=>{
+ e.preventDefault();jump=true;
+});
+document.getElementById('jump').addEventListener('pointerup',()=>jump=false);
+document.getElementById('jump').addEventListener('pointercancel',()=>jump=false);
+let mining=null,mineTimer=0;
+const mineBtn=document.getElementById('mine');
+mineBtn.addEventListener('pointerdown',e=>{
+ e.preventDefault();mining={x:Math.floor(player.x+player.w/2+joy),y:Math.floor(player.y+1)};
+ mineTimer=performance.now();
+});
+mineBtn.addEventListener('pointerup',()=>{
+ if(!mining)return;
+ const duration=performance.now()-mineTimer;
+ if(duration<240){
+   const x=Math.floor(player.x+player.w/2+joy);
+   const y=Math.floor(player.y+1.2);
+   const bx=Math.round(x),by=Math.round(y);
+   if(!getBlock(bx,by))setBlock(bx,by,2);
+ }else{
+   const x=mining.x,y=mining.y;
+   if(getBlock(x,y))setBlock(x,y,0);
+ }
+ mining=null;
+});
+mineBtn.addEventListener('pointercancel',()=>mining=null);
+function solid(x,y){return getBlock(Math.floor(x),Math.floor(y))!==0}
+function update(){
+ player.vx=joy*5;
+ if(jump&&player.onGround){player.vy=-9;player.onGround=false}
+ player.vy=Math.min(player.vy+23/60,.65*20);
+ let nx=player.x+player.vx/60;
+ if(!solid(nx,player.y+.1)&&!solid(nx+player.w,player.y+.1)&&!solid(nx,player.y+player.h-.1)&&!solid(nx+player.w,player.y+player.h-.1))player.x=nx;
+ let ny=player.y+player.vy/60;
+ if(player.vy>=0&&(solid(player.x+.1,ny+player.h)||solid(player.x+player.w-.1,ny+player.h))){
+  player.y=Math.floor(ny+player.h)-player.h;player.vy=0;player.onGround=true;
+ }else if(player.vy<0&&(solid(player.x+.1,ny)||solid(player.x+player.w-.1,ny))){
+  player.vy=0;
+ }else{player.y=ny;player.onGround=false}
+ if(player.y>30){player.x=3;player.y=2;player.vy=0}
+ camera=player.x*tile-W*.38;
+}
+function draw(){
+ ctx.clearRect(0,0,W,H);
+ const sky=ctx.createLinearGradient(0,0,0,H);
+ sky.addColorStop(0,'#66c8ff');sky.addColorStop(1,'#d5f5ff');
+ ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+ ctx.fillStyle='#fff5a8';ctx.beginPath();ctx.arc(W-55,95,28,0,Math.PI*2);ctx.fill();
+ const start=Math.floor(camera/tile)-1;
+ for(let x=start;x<start+Math.ceil(W/tile)+3;x++){
+  for(let y=0;y<13;y++){
+   let b=getBlock(x,y);if(!b)continue;
+   const sx=x*tile-camera,sy=H-((12-y)*tile);
+   ctx.fillStyle=colors[b]||'#98633d';ctx.fillRect(sx,sy,tile,tile);
+   ctx.strokeStyle='#00000020';ctx.strokeRect(sx,sy,tile,tile);
+   if(b===1){ctx.fillStyle='#76df50';ctx.fillRect(sx,sy,tile,5)}
+  }
+ }
+ const px=player.x*tile-camera,py=H-(12-player.y)*tile-player.h*tile;
+ ctx.fillStyle='#2b6bd9';ctx.fillRect(px,py,player.w*tile,player.h*tile);
+ ctx.fillStyle='#ffd0a1';ctx.fillRect(px+5,py+3,13,14);
+ ctx.fillStyle='#202b42';ctx.fillRect(px+14,py+8,3,3);
+ ctx.fillStyle='#26394d';ctx.fillRect(px+3,py+player.h*tile-5,8,5);ctx.fillRect(px+14,py+player.h*tile-5,8,5);
+ if(mining){
+  const bx=mining.x*tile-camera,by=H-(12-mining.y)*tile;
+  ctx.strokeStyle='white';ctx.lineWidth=2;ctx.strokeRect(bx+2,by+2,tile-4,tile-4);
+ }
+ requestAnimationFrame(draw);
+}
+function loop(){update();setTimeout(loop,16)}
+draw();loop();
+</script>
+</body>
+</html>
